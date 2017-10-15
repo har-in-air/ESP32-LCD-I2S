@@ -265,11 +265,16 @@ void CNFGClearScreen(uint8_t pattern) {
 		uint8_t d4;
 		int col;
 		for (col = 0; col < NUM_COLS/4; col++) {
-			d4 = ((row == 0 && col > 5) || (row == 1 && col < 5))?  BIT_VS | pattern : pattern;
+			d4 = ((row == 0 && col > 5) || (row == 1 && col < 5))?  BIT_VS | pattern : pattern; // encode vsync (1 line wide pulse)
 			*pPkt++ = d4;
-			}			
-		d4 = BIT_HS;
-		if ((row == 0 && col > 5) || (row == 1 && col < 5))  d4 |= BIT_VS;
+			}		
+		// The LCD expects a short ( < 1/2 clock period) +ve hsync pulse on the last 4bit packet for the line, and latches the line
+		// on the HS pulse falling edge.
+		// But the i2s parallel bus generated hsync is 1 clock wide, synchronous to the clock edge. The LCD ignores the 
+		// data in all packets with HS high. So we simply generate 4 additional packets with HS high, AFTER transmitting
+		// a full row of pixels. We send 4 packets (32bits) so that we are in i2s byte order sync for the next row.
+		d4 = BIT_HS; 
+		if ((row == 0 && col > 5) || (row == 1 && col < 5))  d4 |= BIT_VS; 
 		*pPkt++ = d4;
 		*pPkt++ = d4;
 		*pPkt++ = d4;
