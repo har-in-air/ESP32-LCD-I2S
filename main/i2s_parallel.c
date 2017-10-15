@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// modified for 8bit lcd mode with encoded Hsync and Vsync pulses,
+// double buffered frame  HN
+
 #include <stdio.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -229,19 +232,18 @@ void i2s_parallel_setup(i2s_dev_t *dev, const i2s_parallel_config_t *cfg) {
 	}
 
 
+
 //Flip to a buffer: 0 for bufa, 1 for bufb
 void i2s_parallel_flip_to_buffer(i2s_dev_t *dev, int bufid) {
-    int no = i2snum(dev);
-    if (i2s_state[no] == NULL) return;
+    int no=i2snum(dev);
+    if (i2s_state[no]==NULL) return;
     lldesc_t *active_dma_chain;
-    if (bufid == 0) {
-        active_dma_chain = (lldesc_t*)&i2s_state[no]->dmadesc_a[0];
-		i2s_state[no]->dmadesc_a[i2s_state[no]->desccount_a-1].qe.stqe_next = active_dma_chain;
-		} 
-	else {
-        active_dma_chain = (lldesc_t*)&i2s_state[no]->dmadesc_b[0];
-		i2s_state[no]->dmadesc_b[i2s_state[no]->desccount_b-1].qe.stqe_next = active_dma_chain;
-		}
+    if (bufid==0) {
+        active_dma_chain=(lldesc_t*)&i2s_state[no]->dmadesc_a[0];
+    } else {
+        active_dma_chain=(lldesc_t*)&i2s_state[no]->dmadesc_b[0];
+    }
 
-	}
-
+    i2s_state[no]->dmadesc_a[i2s_state[no]->desccount_a-1].qe.stqe_next=active_dma_chain;
+    i2s_state[no]->dmadesc_b[i2s_state[no]->desccount_b-1].qe.stqe_next=active_dma_chain;
+}
