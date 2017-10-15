@@ -21,39 +21,6 @@
 int 	drawBufID;
 uint8_t frameBuffer[2][FRAME_SIZE];
 
-// from https://github.com/cnlohr/channel3	
-void SetupMatrix() {
-	tdIdentity( ProjectionMatrix );
-	tdIdentity( ModelviewMatrix );
-	Perspective( 600, 250, 50, 8192, ProjectionMatrix );
-	}
-		
-// from https://github.com/cnlohr/channel3	
-void DrawSphere(int frameIndex) {	
-	CNFGPenX = 0;
-	CNFGPenY = 0;
-	CNFGClearScreen(0);
-	CNFGColor( 1 );
-	tdIdentity( ModelviewMatrix );
-	tdIdentity( ProjectionMatrix );
-	int x = 0;
-	int y = 0;
-	CNFGDrawText( "Matrix-based 3D engine", 3 );
-	SetupMatrix();
-	tdRotateEA( ProjectionMatrix, -20, 0, 0 );
-	tdRotateEA( ModelviewMatrix, frameIndex, 0, 0 );
-	int sphereset = (frameIndex / 120);
-	if( sphereset > 2 ) sphereset = 2;
-	for( y = -sphereset; y <= sphereset; y++ ){
-		for( x = -sphereset; x <= sphereset; x++ ){
-			if( y == 2 ) continue;
-			ModelviewMatrix[11] = 1000 + tdSIN( (x + y)*40 + frameIndex*2 );
-			ModelviewMatrix[3] = 500*x;
-			ModelviewMatrix[7] = 500*y+800;
-			DrawGeoSphere();
-			}
-		}
-	}
 	
 #define PIN_BTN			0
 #define PIN_LED			23
@@ -62,11 +29,6 @@ void DrawSphere(int frameIndex) {
 
 
 void lcdTask(void *pvParameters) {
-	// make sure both front and back buffers have encoded syncs
-    drawBufID = 0; 
-	CNFGClearScreen(0);
-    drawBufID = 1; 
-	CNFGClearScreen(0);
 			
     i2s_parallel_buffer_desc_t bufdesc[2];
     i2s_parallel_config_t cfg = {
@@ -90,70 +52,38 @@ void lcdTask(void *pvParameters) {
 
     bufdesc[1].memory = frameBuffer[1]; 
     bufdesc[1].size = FRAME_SIZE;
+	// make sure both front and back buffers have encoded syncs
+    drawBufID = 0; 
+	CNFGClearScreen(0);
+    drawBufID = 1; 
+	CNFGClearScreen(0);
 	
 	gpio_set_level(PIN_BIAS_EN, 1); // enable lcd bias voltage V0
 	delayMs(50);
 	gpio_set_level(PIN_DPY_EN, 1);  // enable lcd
 	delayMs(50); 
     i2s_parallel_setup(&I2S1, &cfg);
-
-	int counter = 0;
-	int drawState = 0;
+	
+	CNFGLoadBitmap((uint8_t*)lenaBitmap);
+	printf("Loaded bitmap into bufID 1\r\n");
+        i2s_parallel_flip_to_buffer(&I2S1, drawBufID);
+        drawBufID ^= 1;
+	CNFGClearScreen(0);
+	CNFGColor(1);
+	CNFGPenX = 10;
+	CNFGPenY = 10;
+	CNFGDrawText("12:56PM", 10 );
+	
+	
 	
     while(1) {
-        delayMs(20); 
-		counter++;
-        gpio_set_level(PIN_LED, counter&1);
-
-		switch (drawState) {
-			case 0 :
-			default : 
-			if ((counter % 50) == 0) {
-				cct_SetMarker();
-				CNFGClearScreen(0);
-				CNFGColor(1);
-				CNFGPenX = rand()%12;
-				CNFGPenY = rand()%60;
-				char sztext[10];
-				sprintf(sztext,"%02d:%02d%s",CNFGPenX, CNFGPenY, rand()&1 ? "pm" : "am");
-				CNFGDrawText(sztext, 3 + (rand()%8) );
-				uint32_t elapsedUs = cct_ElapsedTimeUs();
-				printf("txt : %dus\r\n", elapsedUs);
-				}
-			break;
-
-			case 1 :
-			if ((counter % 100) == 0) {
-				cct_SetMarker();
-				CNFGClearScreen(0);
-				uint8_t* pImg = (counter/100)&1 ? (uint8_t*)lenaBitmap : (uint8_t*)rectBitmap;
-				CNFGLoadBitmap(pImg);
-				uint32_t elapsedUs = cct_ElapsedTimeUs();
-				printf("bmp : %dus\r\n", elapsedUs);
-				}
-			break;
-
-			case 2 :
-			cct_SetMarker();
-			DrawSphere(counter%240);
-			uint32_t elapsedUs = cct_ElapsedTimeUs();
-			printf("sph : %dus\r\n", elapsedUs);
-			break;
-			}
-		
+		delayMs(5000);
         i2s_parallel_flip_to_buffer(&I2S1, drawBufID);
         drawBufID ^= 1;
 		
-        if (!gpio_get_level(PIN_BTN)) {
-			delayMs(50); // debounce button
-			if (!gpio_get_level(PIN_BTN)) {
-				drawState++;
-				if (drawState > 2) drawState = 0;
-				delayMs(300);
-				}	 
-			}
 		}
-}
+	}
+	
 	
 void app_main(){
 	nvs_flash_init();
