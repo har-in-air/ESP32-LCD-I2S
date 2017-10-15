@@ -235,31 +235,28 @@ void  LocalToScreenspace( int16_t * coords_3v, int16_t * o1, int16_t * o2 ){
 	*o2 = (256 * tmppt[1] / tmppt[3])/8+ (NUM_ROWS/2);
 	}
 
-int lookup[4] = {2,3,0,1};
+int bytePosLkp[4] = {2,3,0,1}; //  order of bytes sent to i2s peripheral for them to appear at 8bit parallel bus in 0,1,2,3 order
  
 void CNFGTackPixelB( int x, int y ){
 	uint8_t* pFrame = frameBuffer[drawBufID];
-	int	pktIndex = x/4;
-	int w32Index = pktIndex/4;
-	int lkpIndex = pktIndex & 3;
-	int byteIndex = y*NUM_ROW_BYTES + w32Index*4 + lookup[lkpIndex];
+	int	pktIndex = x/4; // 4 bit data bus, 4 bit packet (plus syncs) transmitted each clock
+	int w32Index = pktIndex/4; // i2s bus is 32bits = 4 bytes, each byte encodes the 4bit data + hsync + vsync
+	int lkpIndex = pktIndex & 3; // we need to transpose the bytes sent to i2s peripheral to ensure they come out in the right order :-(
+	int byteIndex = y*NUM_ROW_BYTES + w32Index*4 + bytePosLkp[lkpIndex];
 	int bitPos = x&3;
-	pFrame[byteIndex] |= (uint8_t)(0x8 >> bitPos);
+	pFrame[byteIndex] |= (uint8_t)(0x8 >> bitPos); //  set the bit
 	}
 
 void CNFGTackPixelW( int x, int y ){
 	uint8_t* pFrame = frameBuffer[drawBufID];
-	int	pktIndex = x/4;
-	int w32Index = pktIndex/4;
-	int lkpIndex = pktIndex & 3;
-	int byteIndex = y*NUM_ROW_BYTES + w32Index*4 + lookup[lkpIndex];
+	int	pktIndex = x/4; // 4 bit data bus, 4 bit packet (plus syncs) transmitted each clock
+	int w32Index = pktIndex/4; // i2s bus is 32bits = 4 bytes, each byte encodes the 4bit data + hsync + vsync
+	int lkpIndex = pktIndex & 3; // we need to transpose the bytes sent to i2s peripheral to ensure they come out in the right order :-(
+	int byteIndex = y*NUM_ROW_BYTES + w32Index*4 + bytePosLkp[lkpIndex];
 	int bitPos = x&3;
-	pFrame[byteIndex] &= ~(uint8_t)(0x8 >> bitPos);
+	pFrame[byteIndex] &= ~(uint8_t)(0x8 >> bitPos); // clear the bit
 	}
 
-void CNFGTackPixelG( int x, int y ){
-	CNFGTackPixelB( x, y ); // same as black 
-	}
 
 void CNFGClearScreen(uint8_t pattern) {
 	uint8_t* pPkt = frameBuffer[drawBufID];
@@ -268,11 +265,11 @@ void CNFGClearScreen(uint8_t pattern) {
 		uint8_t d4;
 		int col;
 		for (col = 0; col < NUM_COLS/4; col++) {
-			d4 = ((row == 0 && col > 5) || (row == 1 && col <= 5))?  BIT_VS | pattern : pattern;
+			d4 = ((row == 0 && col > 5) || (row == 1 && col < 5))?  BIT_VS | pattern : pattern;
 			*pPkt++ = d4;
 			}			
 		d4 = BIT_HS;
-		if ((row == 0 && col > 5) || (row == 1 && col <= 5))  d4 |= BIT_VS;
+		if ((row == 0 && col > 5) || (row == 1 && col < 5))  d4 |= BIT_VS;
 		*pPkt++ = d4;
 		*pPkt++ = d4;
 		*pPkt++ = d4;

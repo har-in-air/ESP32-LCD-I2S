@@ -1,19 +1,23 @@
 #ifndef _3D_H_
 #define _3D_H_
 
+// graphics for controller-less monochrome LCD display with 4bit data bus,
+// hsync, vsync and fr signals.  The fr signal is generated externally
+// in hw from the vsync signal. So we need to encode the 4bit data + hsync + vsync
+// on a 6bit wide parallel bus to the LCD. For this we use the ESP32 i2s bus
+// in parallel LCD 8bit mode.
 
 #define BIT_HS	(uint8_t)(1<<4)
 #define BIT_VS	(uint8_t)(1<<5)
 
-#define NUM_COLS 240
-#define NUM_ROWS 160
+#define NUM_COLS 		240
+#define NUM_ROWS 		160
 #define NUM_ROW_BYTES 	((NUM_COLS/4) + 4)
 
 #define FRAME_SIZE (NUM_ROW_BYTES * NUM_ROWS)
 
 extern int drawBufID; // writeable buffer ID, the other one is being displayed
 extern uint8_t frameBuffer[2][FRAME_SIZE];
-
 
 extern int16_t ProjectionMatrix[16];
 extern int16_t ModelviewMatrix[16];
@@ -33,7 +37,6 @@ int16_t tdCOS( uint8_t iv );
 void CNFGColor( uint8_t col ); 
 void CNFGClearScreen(uint8_t pattern);
 void CNFGLoadBitmap(uint8_t* pImg);
-
 
 void  tdTranslate( int16_t * f, int16_t x, int16_t y, int16_t z );		//Operates ON f
 void  tdScale( int16_t * f, int16_t x, int16_t y, int16_t z );			//Operates ON f
@@ -56,6 +59,7 @@ void  Draw3DSegment( int16_t * c1, int16_t * c2 );
 int16_t  tdPerlin2D( int16_t x, int16_t y );
 int16_t  tdFLerp( int16_t a, int16_t b, int16_t t );
 int16_t  tdNoiseAt( int16_t x, int16_t y );
+
 #endif
 
 
