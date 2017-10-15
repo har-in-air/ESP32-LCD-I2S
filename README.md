@@ -6,6 +6,8 @@ Uses ESP32 I2S peripheral in 8bit parallel LCD mode. The bus is actually 6bits w
 
 Double-buffered memory with one frame buffer being continuously read out by the i2s peripheral. The other buffer can be updated asynchronously by the application, and flipped at any time. This avoids artifacts in the displayed image. 
 
+The ESP32 forum thread at https://www.esp32.com/viewtopic.php?f=13&t=3256 has more information on the i2s parallel lcd 8bit mode.
+
 ## Credits
 Uses a 3D graphics driver modified from https://github.com/cnlohr/channel3	
 
