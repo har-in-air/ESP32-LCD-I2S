@@ -1,5 +1,5 @@
 # ESP32-LCD-I2S
-Uses Espressif ESP32 I2S peripheral in parallel LCD mode to drive a controller-less 240 x 160 monochrome lcd with 4bit data, clock, hsync and vsync, without cpu intervention.
+This is an esp-idf project that demonstrates use of the Espressif ESP32 I2S peripheral to drive a controller-less 240 x 160 monochrome lcd with 4bit data, clock, hsync and vsync, without cpu intervention.
 
 ## Features
 The LCD has internal memory only for one line of pixels. It requires 4 1-bit horizontal pixels per clock, a horizontal sync pulse (HS) to latch a line of pixels, a one line wide vertical sync pulse (VS) per frame, and a frame toggle signal (FR) that alternates level every frame.
