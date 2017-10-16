@@ -15,7 +15,9 @@ We double-buffer a frame of pixels in ESP32 RAM. The I2S peripheral continuously
 3D graphics code from https://github.com/cnlohr/channel3 modified for our purpose.	
 
 Sample I2S parallel code and specific information on the 8bit mode from postings by Espressif contributor ESP_Sprite in these threads on the ESP32 forum : 
+
 https://www.esp32.com/viewtopic.php?f=17&t=3188 
+
 https://www.esp32.com/viewtopic.php?f=13&t=3256.
 
 
