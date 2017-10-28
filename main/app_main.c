@@ -91,10 +91,11 @@ void lcdTask(void *pvParameters) {
     drawBufID = 1; 
 	CNFGClearScreen(0);
 	
-	gpio_set_level(PIN_BIAS_EN, 1); // enable lcd bias voltage V0
-	delayMs(100);
+	delayMs(50);
     i2s_parallel_setup(&I2S1, &cfg);
-	delayMs(10); 
+	delayMs(50);
+	gpio_set_level(PIN_BIAS_EN, 1); // enable lcd bias voltage V0 after clocks are available
+	delayMs(50); 
 	gpio_set_level(PIN_DPY_EN, 1);  // enable lcd
 
 	int counter = 0;
