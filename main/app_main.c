@@ -1,22 +1,17 @@
-#include <stdio.h>
-#include <stdint.h>
-#include <stddef.h>
-#include <string.h>
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "esp_system.h"
-#include "nvs_flash.h"
+#include "common.h"
 #include "i2s_parallel.h"
 #include "3d.h"
 #include "cct.h"
 
 
-#define delayMs(ms) vTaskDelay(ms / portTICK_PERIOD_MS)
-
-
 #include "rectbmp.h"
 #include "lenabmp.h"
+
+#define TAG "main"
+
+#define PIN_BTN			0
+#define PIN_BIAS_EN		12
+#define PIN_DPY_EN		27
 
 int 	drawBufID;
 uint8_t frameBuffer[2][FRAME_SIZE];
@@ -55,27 +50,23 @@ void DrawSphere(int frameIndex) {
 		}
 	}
 	
-#define PIN_BTN			0
-#define PIN_LED			23
-#define PIN_BIAS_EN		22
-#define PIN_DPY_EN		21
-
 
 void lcdTask(void *pvParameters) {
-			
     i2s_parallel_buffer_desc_t bufdesc[2];
     i2s_parallel_config_t cfg = {
-        .gpio_bus = {15, 	// 0 : d0 
-					2, 		// 1 : d1
-					4, 		// 2 : d2
-					16, 	// 3 : d3
-					17, 	// 4 : HS
-					5, 		// 5 : VS
-					-1,		// 6 : no connection
-					-1},	// 7 : no connection
-        .gpio_clk = 19, 	// XCK
+        .gpio_bus = {
+               16, 	// 0 : d0 
+					4, 	// 1 : d1
+					2, 	// 2 : d2
+					15, 	// 3 : d3
+					13, 	// 4 : HS
+					14, 	// 5 : VS
+					-1,	// 6 : unused
+					-1},	// 7 : unused
+        .gpio_clk = 17,	// XCK
+
         .bits = I2S_PARALLEL_BITS_8,
-        .clkspeed_hz = 2*1000*1000,
+        .clkspeed_hz = 2*1000*1000,//resulting pixel clock = 1MHz
         .bufa = &bufdesc[0],
         .bufb = &bufdesc[1]
     };
@@ -91,20 +82,20 @@ void lcdTask(void *pvParameters) {
     drawBufID = 1; 
 	CNFGClearScreen(0);
 	
+  // this lcd power up sequence must be followed to avoid damage
 	delayMs(50);
-    i2s_parallel_setup(&I2S1, &cfg);
+   i2s_parallel_setup(&I2S1, &cfg);
 	delayMs(50);
-	gpio_set_level(PIN_BIAS_EN, 1); // enable lcd bias voltage V0 after clocks are available
+	digitalWrite(PIN_BIAS_EN, 1); // enable lcd bias voltage V0 after clocks are available
 	delayMs(50); 
-	gpio_set_level(PIN_DPY_EN, 1);  // enable lcd
+	digitalWrite(PIN_DPY_EN, 1);  // enable lcd
 
 	int counter = 0;
 	int drawState = 0;
 	
-    while(1) {
-        delayMs(20); 
+   while(1) {
+      delayMs(20); 
 		counter++;
-        gpio_set_level(PIN_LED, counter&1);
 
 		switch (drawState) {
 			case 0 :
@@ -119,10 +110,14 @@ void lcdTask(void *pvParameters) {
 				sprintf(sztext,"%02d:%02d%s",CNFGPenX, CNFGPenY, rand()&1 ? "pm" : "am");
 				CNFGDrawText(sztext, 3 + (rand()%8) );
 				uint32_t elapsedUs = cct_ElapsedTimeUs();
-				printf("txt : %dus\r\n", elapsedUs);
+				ESP_LOGI(TAG, "txt : %dus\r\n", elapsedUs);
 				i2s_parallel_flip_to_buffer(&I2S1, drawBufID);
 				drawBufID ^= 1;
 				}
+         if (counter > 500) {
+            drawState = 1;
+            counter = 0;
+            }
 			break;
 
 			case 1 :
@@ -132,17 +127,21 @@ void lcdTask(void *pvParameters) {
 				uint8_t* pImg = (counter/100)&1 ? (uint8_t*)lenaBitmap : (uint8_t*)rectBitmap;
 				CNFGLoadBitmap(pImg);
 				uint32_t elapsedUs = cct_ElapsedTimeUs();
-				printf("bmp : %dus\r\n", elapsedUs);
+				ESP_LOGI(TAG, "bmp : %dus\r\n", elapsedUs);
 				i2s_parallel_flip_to_buffer(&I2S1, drawBufID);
 				drawBufID ^= 1;
 				}
+         if (counter > 500) {
+            drawState = 2;
+            counter = 0;
+            }
 			break;
 
 			case 2 :
 			cct_SetMarker();
 			DrawSphere(counter%240);
 			uint32_t elapsedUs = cct_ElapsedTimeUs();
-			printf("sph : %dus\r\n", elapsedUs);
+			//ESP_LOGI(TAG,"sph : %dus\r\n", elapsedUs);
 			i2s_parallel_flip_to_buffer(&I2S1, drawBufID);
 			drawBufID ^= 1;
 			break;
@@ -162,19 +161,15 @@ void lcdTask(void *pvParameters) {
 	
 	
 void app_main(){
-	nvs_flash_init();
-    gpio_set_direction(PIN_LED, GPIO_MODE_DEF_OUTPUT);
-    gpio_set_direction(PIN_DPY_EN, GPIO_MODE_DEF_OUTPUT);
-	gpio_set_level(PIN_DPY_EN, 0);
-
-    gpio_set_direction(PIN_BIAS_EN, GPIO_MODE_DEF_OUTPUT);
-	gpio_set_level(PIN_BIAS_EN, 0);
-
-    gpio_set_direction(PIN_BTN, GPIO_MODE_DEF_INPUT);
-    gpio_pullup_en(PIN_BTN);
+   pinMode(PIN_DPY_EN, OUTPUT);
+   digitalWrite(PIN_DPY_EN, 0);
+   pinMode(PIN_BIAS_EN, OUTPUT);
+   digitalWrite(PIN_BIAS_EN, 0);
+   
+   pinMode(PIN_BTN,INPUT_PULLUP);
 
 	xTaskCreatePinnedToCore(&lcdTask, "lcdTask", 2048, NULL, 20, NULL, 1);
-}
+   }
 
 
 

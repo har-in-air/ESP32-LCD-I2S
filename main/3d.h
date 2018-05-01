@@ -7,8 +7,8 @@
 // on a 6bit wide parallel bus to the LCD. For this we use the ESP32 i2s bus
 // in parallel LCD 8bit mode.
 
-#define BIT_HS	(uint8_t)(1<<4)
-#define BIT_VS	(uint8_t)(1<<5)
+#define BIT_HS	((uint8_t)(1<<4))
+#define BIT_VS	((uint8_t)(1<<5))
 
 #define NUM_COLS 		240
 #define NUM_ROWS 		160
