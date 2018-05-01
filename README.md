@@ -1,5 +1,5 @@
 # ESP32-LCD-I2S
-This is an esp-idf project that demonstrates use of the Espressif ESP32 I2S peripheral to drive a controller-less 240 x 160 monochrome lcd with 4bit data, clock, hsync and vsync, without cpu intervention.
+This is an esp-idf project that demonstrates use of the Espressif ESP32 I2S peripheral to drive a controller-less 240 x 160 monochrome lcd with 4bit data, clock, hsync and vsync, without using cpu cycles.
 
 A demo video of the working lcd interface is available in the /docs directory.
 
