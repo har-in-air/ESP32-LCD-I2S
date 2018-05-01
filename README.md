@@ -6,7 +6,7 @@ The LCD has internal memory only for one line of pixels. It requires 4 1-bit hor
 
 We use the I2S peripheral in parallel LCD mode with 8-bit bus width. The physical data bus is actually 6bits wide, and encodes 4bits of monochrome pixels plus the HS and VS signals. The I2S peripheral also generates the pixel clock.  
 
-External hardware generates the FR signal from the VS signal. We can use an edge-triggered D latch with feedback, or LSb of a binary counter, with the VS pulse as clock pulse input. Here I used a 74AC191 binary counter.
+External hardware generates the FR signal from the VS signal. We use an edge-triggered D latch (74LVC1G80) with feedback from the Q' output to the D input. The VS signal is connected to the clock pulse input of the latch, and the FR signal is taken from the Q' output.
 
 We double-buffer a frame of pixels in ESP32 RAM. The I2S peripheral continuously reads out the display frame buffer without CPU intervention. The application software updates the draw frame buffer, and can flip this at any time. This avoids artifacts in the LCD display from partial updates. 
 
