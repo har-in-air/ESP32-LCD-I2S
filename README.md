@@ -3,6 +3,8 @@ This is an esp-idf project that demonstrates use of the Espressif ESP32 I2S peri
 
 A demo video of the working lcd interface is available in the \docs directory.
 
+Built on Ubuntu 16.04LTS amdx64 platform with esp-idf commit 84788230392d0918d3add78d9ccf8c2bb7de3152,  2018 March 21.
+
 ## Features
 The LCD has internal memory only for one line of pixels. It requires 4 1-bit horizontal pixels per clock, a horizontal sync pulse (HS) to latch a line of pixels, a one line wide vertical sync pulse (VS) per frame, and a frame toggle signal (FR) that alternates level every frame.
 
