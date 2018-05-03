@@ -160,7 +160,7 @@ void lcdTask(void *pvParameters) {
             gfx_printSz(48,0,"nunc bibendum. Nullam aliquet ultrices");
             gfx_printSz(56,0,"massa eu hendrerit. Ut sed nisi lorem.");
             gfx_printSz(64,0,"In vestibulum purus a tortor imperdiet");
-            gfx_printSz(70,0,"posuere.");
+            gfx_printSz(72,0,"posuere.");
 				uint32_t elapsedUs = cct_ElapsedTimeUs();
 				ESP_LOGI(TAG, "bitmap txt : %dus\r\n", elapsedUs);
 #ifdef DOUBLE_BUFFERED
