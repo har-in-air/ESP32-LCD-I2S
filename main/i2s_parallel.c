@@ -15,15 +15,7 @@
 // modified for 8bit lcd mode with encoded Hsync and Vsync pulses,
 // double buffered frame  HN
 
-#include <stdio.h>
-#include <stdint.h>
-#include <stddef.h>
-#include <string.h>
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/semphr.h"
-#include "freertos/queue.h"
+#include "common.h"
 
 #include "soc/i2s_struct.h"
 #include "soc/i2s_reg.h"
@@ -33,12 +25,21 @@
 #include "esp_heap_caps.h"
 #include "i2s_parallel.h"
 
-typedef struct {
-    volatile lldesc_t* dmadesc_a;
-	volatile lldesc_t* dmadesc_b;
-    int desccount_a;
-	int	desccount_b;
-} i2s_parallel_state_t;
+#define TAG "i2s_parallel"
+
+#ifdef DOUBLE_BUFFERED
+   typedef struct {
+      volatile lldesc_t* dmadesc_a;
+	   volatile lldesc_t* dmadesc_b;
+      int desccount_a;
+	   int desccount_b;
+   } i2s_parallel_state_t;
+#else
+   typedef struct {
+      volatile lldesc_t* dmadesc;
+      int desccount;
+   } i2s_parallel_state_t;
+#endif
 
 static i2s_parallel_state_t* i2s_state[2] = {NULL, NULL};
 
@@ -46,15 +47,15 @@ static i2s_parallel_state_t* i2s_state[2] = {NULL, NULL};
 
 //Calculate the amount of dma descs needed for a buffer desc
 static int calc_needed_dma_descs_for(i2s_parallel_buffer_desc_t *desc) {
-    int ret = (desc->size + DMA_MAX - 1)/DMA_MAX;
-    return ret;
+   int ret = (desc->size + DMA_MAX - 1)/DMA_MAX;
+   return ret;
 	}
 
 static void fill_dma_desc(volatile lldesc_t* dmadesc, i2s_parallel_buffer_desc_t* bufdesc) {
-    int n = 0;
-    int len = bufdesc->size;
-    uint8_t* data = (uint8_t*)bufdesc->memory;
-    while(len) {
+   int n = 0;
+   int len = bufdesc->size;
+   uint8_t* data = (uint8_t*)bufdesc->memory;
+   while(len) {
 		int dmalen = len;
 		if (dmalen > DMA_MAX) dmalen = DMA_MAX;
 		dmadesc[n].size = dmalen;
@@ -69,10 +70,10 @@ static void fill_dma_desc(volatile lldesc_t* dmadesc, i2s_parallel_buffer_desc_t
 		data += dmalen;
 		n++;
 		}
-    //Loop last back to first
-    dmadesc[n-1].qe.stqe_next=(lldesc_t*)&dmadesc[0];
-    printf("fill_dma_desc: filled %d descriptors\n", n);
-}
+   //Loop last back to first
+   dmadesc[n-1].qe.stqe_next = (lldesc_t*)&dmadesc[0];
+   ESP_LOGI(TAG,"fill_dma_desc: filled %d descriptors\n", n);
+   }
 
 static void gpio_setup_out(int gpio, int sig, int inv) {
     if (gpio == -1) return;
@@ -102,7 +103,7 @@ static int i2snum(i2s_dev_t *dev) {
 
 void i2s_parallel_setup(i2s_dev_t *dev, const i2s_parallel_config_t *cfg) {
     //Figure out which signal numbers to use for routing
-    printf("Setting up parallel I2S bus at I2S%d\n", i2snum(dev));
+    ESP_LOGI(TAG,"Setting up parallel I2S bus at I2S%d\n", i2snum(dev));
     int sig_data_base, sig_clk;
     if (dev == &I2S0) {
         sig_data_base = I2S0O_DATA_OUT0_IDX;
@@ -197,17 +198,24 @@ void i2s_parallel_setup(i2s_dev_t *dev, const i2s_parallel_config_t *cfg) {
     //Allocate DMA descriptors
     i2s_state[i2snum(dev)] = malloc(sizeof(i2s_parallel_state_t));
     i2s_parallel_state_t *st = i2s_state[i2snum(dev)];
+#ifdef DOUBLE_BUFFERED
     st->desccount_a = calc_needed_dma_descs_for(cfg->bufa);
-	printf("st->descccount_a = %d\r\n", st->desccount_a);
+	 ESP_LOGI(TAG,"st->descccount_a = %d\r\n", st->desccount_a);
     st->desccount_b = calc_needed_dma_descs_for(cfg->bufb);
-	printf("st->descccount_b = %d\r\n", st->desccount_b);
+	 ESP_LOGI(TAG,"st->descccount_b = %d\r\n", st->desccount_b);
     st->dmadesc_a = heap_caps_malloc(st->desccount_a*sizeof(lldesc_t), MALLOC_CAP_DMA);
-    st->dmadesc_b = heap_caps_malloc(st->desccount_b*sizeof(lldesc_t), MALLOC_CAP_DMA);
-    
+    st->dmadesc_b = heap_caps_malloc(st->desccount_b*sizeof(lldesc_t), MALLOC_CAP_DMA);    
     //and fill them
     fill_dma_desc(st->dmadesc_a, cfg->bufa);
     fill_dma_desc(st->dmadesc_b, cfg->bufb);
-    
+#else
+    st->desccount = calc_needed_dma_descs_for(cfg->buf);
+	 ESP_LOGI(TAG,"st->descccount = %d\r\n", st->desccount);
+    st->dmadesc = heap_caps_malloc(st->desccount*sizeof(lldesc_t), MALLOC_CAP_DMA);
+    //and fill them
+    fill_dma_desc(st->dmadesc, cfg->buf);
+#endif    
+
     //Reset FIFO/DMA -> needed? Doesn't dma_reset/fifo_reset do this?
     dev->lc_conf.in_rst = 1; 
 	dev->lc_conf.out_rst = 1; 
@@ -226,12 +234,17 @@ void i2s_parallel_setup(i2s_dev_t *dev, const i2s_parallel_config_t *cfg) {
     
     //Start dma on front buffer
     dev->lc_conf.val = I2S_OUT_DATA_BURST_EN | I2S_OUTDSCR_BURST_EN | I2S_OUT_DATA_BURST_EN;
+#ifdef DOUBLE_BUFFERED
     dev->out_link.addr = ((uint32_t)(&st->dmadesc_a[0]));
+#else
+    dev->out_link.addr = ((uint32_t)(&st->dmadesc[0]));
+#endif
     dev->out_link.start = 1;
     dev->conf.tx_start = 1;
 	}
 
 
+#ifdef DOUBLE_BUFFERED
 
 //Flip to a buffer: 0 for bufa, 1 for bufb
 void i2s_parallel_flip_to_buffer(i2s_dev_t *dev, int bufid) {
@@ -247,3 +260,6 @@ void i2s_parallel_flip_to_buffer(i2s_dev_t *dev, int bufid) {
     i2s_state[no]->dmadesc_a[i2s_state[no]->desccount_a-1].qe.stqe_next=active_dma_chain;
     i2s_state[no]->dmadesc_b[i2s_state[no]->desccount_b-1].qe.stqe_next=active_dma_chain;
 }
+
+#endif
+
